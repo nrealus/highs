@@ -119,7 +119,9 @@ use highs_sys::*;
 
 pub use matrix_col::{ColMatrix, Row};
 pub use matrix_row::{Col, RowMatrix};
-pub use status::{HighsModelStatus, HighsSolutionStatus, HighsStatus};
+pub use status::{
+    HighsIisBoundStatus, HighsIisStatus, HighsModelStatus, HighsSolutionStatus, HighsStatus,
+};
 
 use crate::options::HighsOptionValue;
 
@@ -791,6 +793,74 @@ impl SolvedModel {
         }
     }
 
+    /// Attempt to compute an IIS.
+    pub fn get_iis(&self) -> Iis {
+        let cols = self.num_cols();
+        let rows = self.num_rows();
+        let iis_numcol: &mut HighsInt = &mut 0;
+        let iis_numrow: &mut HighsInt = &mut 0;
+        let mut colindex: Vec<HighsInt> = vec![0; cols];
+        let mut rowindex: Vec<HighsInt> = vec![0; rows];
+        let mut colbound: Vec<HighsInt> = vec![0; cols];
+        let mut rowbound: Vec<HighsInt> = vec![0; rows];
+        let mut colstatus: Vec<HighsInt> = vec![0; cols];
+        let mut rowstatus: Vec<HighsInt> = vec![0; rows];
+
+        // Attempt to compute IIS.
+        // If no IIS is found, then the number of IIS columns and rows will be zero.
+        unsafe {
+            Highs_getIis(
+                self.highs.unsafe_mut_ptr(),
+                iis_numcol,
+                iis_numrow,
+                colindex.as_mut_ptr(),
+                rowindex.as_mut_ptr(),
+                colbound.as_mut_ptr(),
+                rowbound.as_mut_ptr(),
+                colstatus.as_mut_ptr(),
+                rowstatus.as_mut_ptr(),
+            );
+        }
+
+        let iis_numcol = usize::try_from(*iis_numcol).unwrap();
+        let iis_numrow = usize::try_from(*iis_numrow).unwrap();
+        colindex.truncate(iis_numcol);
+        rowindex.truncate(iis_numrow);
+        colbound.truncate(iis_numcol);
+        rowbound.truncate(iis_numrow);
+
+        let colindex = colindex
+            .into_iter()
+            .map(|i| Col(usize::try_from(i).unwrap()))
+            .collect();
+        let rowindex = rowindex.into_iter().map(Row).collect();
+        let colbound = colbound
+            .into_iter()
+            .map(|i| HighsIisBoundStatus::try_from(i).unwrap())
+            .collect();
+        let rowbound = rowbound
+            .into_iter()
+            .map(|i| HighsIisBoundStatus::try_from(i).unwrap())
+            .collect();
+        let colstatus = colstatus
+            .into_iter()
+            .map(|i| HighsIisStatus::try_from(i).unwrap())
+            .collect();
+        let rowstatus = rowstatus
+            .into_iter()
+            .map(|i| HighsIisStatus::try_from(i).unwrap())
+            .collect();
+
+        Iis {
+            colindex,
+            rowindex,
+            colbound,
+            rowbound,
+            colstatus,
+            rowstatus,
+        }
+    }
+
     /// Number of variables
     fn num_cols(&self) -> usize {
         self.highs.num_cols().expect("invalid number of columns")
@@ -834,6 +904,72 @@ impl Index<Col> for Solution {
     type Output = f64;
     fn index(&self, col: Col) -> &f64 {
         &self.colvalue[col.0]
+    }
+}
+
+/// IIS: Irreducible Infeasible Subsystem
+#[derive(Clone, Debug)]
+pub struct Iis {
+    colindex: Vec<Col>,
+    rowindex: Vec<Row>,
+    colbound: Vec<HighsIisBoundStatus>,
+    rowbound: Vec<HighsIisBoundStatus>,
+    colstatus: Vec<HighsIisStatus>,
+    rowstatus: Vec<HighsIisStatus>,
+}
+
+impl Iis {
+    /// The columns (variables) that appear in the IIS
+    pub fn columns(&self) -> &[Col] {
+        &self.colindex
+    }
+    /// The rows (constraints) that appear in the IIS
+    pub fn rows(&self) -> &[Row] {
+        &self.rowindex
+    }
+    /// Get the IIS bound status of a column.
+    pub fn get_column_bound_status(&self, col: &Col) -> Option<HighsIisBoundStatus> {
+        self.colindex.iter().enumerate().find_map(|(i, c)| {
+            (*c == *col)
+                .then(|| self.colbound.get(i).copied())
+                .flatten()
+        })
+    }
+    /// Get the IIS bound status of a row.
+    pub fn get_row_bound_status(&self, row: &Row) -> Option<HighsIisBoundStatus> {
+        self.rowindex.iter().enumerate().find_map(|(i, r)| {
+            (*r == *row)
+                .then(|| self.rowbound.get(i).copied())
+                .flatten()
+        })
+    }
+    /// Whether the given column is contained in the IIS.
+    pub fn contains_column(&self, col: &Col) -> bool {
+        matches!(
+            self.colstatus.get(col.index()),
+            Some(HighsIisStatus::InConflict)
+        )
+    }
+    /// Whether the given row is contained in the IIS.
+    pub fn contains_row(&self, row: &Row) -> bool {
+        matches!(
+            self.rowstatus.get(usize::try_from(row.0).unwrap()),
+            Some(HighsIisStatus::InConflict)
+        )
+    }
+    /// Whether the given column maybe is contained in the IIS.
+    pub fn contains_column_maybe(&self, col: &Col) -> bool {
+        matches!(
+            self.colstatus.get(col.index()),
+            Some(HighsIisStatus::InConflict) | Some(HighsIisStatus::MaybeInConflict)
+        )
+    }
+    /// Whether the given row maybe is contained in the IIS.
+    pub fn contains_row_maybe(&self, row: &Row) -> bool {
+        matches!(
+            self.rowstatus.get(usize::try_from(row.0).unwrap()),
+            Some(HighsIisStatus::InConflict) | Some(HighsIisStatus::MaybeInConflict)
+        )
     }
 }
 
@@ -1041,5 +1177,36 @@ mod test {
         model.change_column_bounds(x, 1..);
         let solved = model.solve();
         assert_eq!(solved.objective_value(), 1.0);
+    }
+
+    #[test]
+    fn test_iis_simple() {
+        let mut problem = RowProblem::new();
+        let x = problem.add_column(0., 1..); // x in [1,inf]
+        let y = problem.add_column(0., 1..); // y in [1,inf]
+        let z = problem.add_column(0., 1..); // z in [1,inf]
+        problem.add_row(..1.1, [(x, 1.), (y, 0.), (z, 1.)]); // x + z <= 2.1
+        problem.add_row(5.., [(x, 0.), (y, 1.), (z, 0.)]); // 5 <= y
+        let iis = problem.optimise(Sense::Minimise).solve().get_iis();
+
+        assert_eq!(iis.colindex, vec![Col(0), Col(2)]);
+        assert_eq!(iis.rowindex, vec![Row(0)]);
+        assert_eq!(
+            iis.colbound,
+            vec![HighsIisBoundStatus::Lower, HighsIisBoundStatus::Lower]
+        );
+        assert_eq!(iis.rowbound, vec![HighsIisBoundStatus::Upper]);
+        assert_eq!(
+            iis.colstatus,
+            vec![
+                HighsIisStatus::InConflict,
+                HighsIisStatus::NotInConflict,
+                HighsIisStatus::InConflict
+            ]
+        );
+        assert_eq!(
+            iis.rowstatus,
+            vec![HighsIisStatus::InConflict, HighsIisStatus::NotInConflict]
+        );
     }
 }
