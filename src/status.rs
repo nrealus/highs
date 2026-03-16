@@ -152,3 +152,60 @@ impl TryFrom<c_int> for HighsSolutionStatus {
         }
     }
 }
+
+/// The status of a bound of an IIS' column or row.
+#[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Ord, Eq)]
+pub enum HighsIisBoundStatus {
+    /// Dropped
+    Dropped = IIS_BOUND_STATUS_DROPPED as isize,
+    /// Null
+    Null = IIS_BOUND_STATUS_NULL as isize,
+    /// Free
+    Free = IIS_BOUND_STATUS_FREE as isize,
+    /// Lower
+    Lower = IIS_BOUND_STATUS_LOWER as isize,
+    /// Upper
+    Upper = IIS_BOUND_STATUS_UPPER as isize,
+    /// Boxed
+    Boxed = IIS_BOUND_STATUS_BOXED as isize,
+}
+
+impl TryFrom<c_int> for HighsIisBoundStatus {
+    type Error = InvalidStatus;
+
+    fn try_from(value: c_int) -> Result<Self, Self::Error> {
+        match value {
+            IIS_BOUND_STATUS_DROPPED => Ok(Self::Dropped),
+            IIS_BOUND_STATUS_NULL => Ok(Self::Null),
+            IIS_BOUND_STATUS_FREE => Ok(Self::Free),
+            IIS_BOUND_STATUS_LOWER => Ok(Self::Lower),
+            IIS_BOUND_STATUS_UPPER => Ok(Self::Upper),
+            IIS_BOUND_STATUS_BOXED => Ok(Self::Boxed),
+            n => Err(InvalidStatus(n)),
+        }
+    }
+}
+
+/// The IIS status of a column (i.e. a bound on a variable) or row (i.e. a constraint).
+#[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Ord, Eq)]
+pub enum HighsIisStatus {
+    /// Not included in a conflict / infeasible subsystem
+    NotInConflict = IIS_STATUS_NOT_IN_CONFLICT as isize,
+    /// Maybe included in a conflict / infeasible subsystem
+    MaybeInConflict = IIS_STATUS_MAYBE_IN_CONFLICT as isize,
+    /// Included in a conflict / infeasible subsystem
+    InConflict = IIS_STATUS_IN_CONFLICT as isize,
+}
+
+impl TryFrom<c_int> for HighsIisStatus {
+    type Error = InvalidStatus;
+
+    fn try_from(value: c_int) -> Result<Self, Self::Error> {
+        match value {
+            IIS_STATUS_NOT_IN_CONFLICT => Ok(Self::NotInConflict),
+            IIS_STATUS_MAYBE_IN_CONFLICT => Ok(Self::MaybeInConflict),
+            IIS_STATUS_IN_CONFLICT => Ok(Self::InConflict),
+            n => Err(InvalidStatus(n)),
+        }
+    }
+}
