@@ -829,35 +829,40 @@ impl SolvedModel {
         colbound.truncate(iis_numcol);
         rowbound.truncate(iis_numrow);
 
-        let colindex = colindex
+        let iis_cols = colindex
             .into_iter()
-            .map(|i| Col(usize::try_from(i).unwrap()))
+            .zip(colbound.into_iter())
+            .map(|(col_index, col_bound_status)| {
+                (
+                    Col(usize::try_from(col_index).unwrap()),
+                    HighsIisBoundStatus::try_from(col_bound_status).unwrap(),
+                )
+            })
             .collect();
-        let rowindex = rowindex.into_iter().map(Row).collect();
-        let colbound = colbound
+        let iis_rows = rowindex
             .into_iter()
-            .map(|i| HighsIisBoundStatus::try_from(i).unwrap())
+            .zip(rowbound.into_iter())
+            .map(|(row_index, row_bound_status)| {
+                (
+                    Row(row_index),
+                    HighsIisBoundStatus::try_from(row_bound_status).unwrap(),
+                )
+            })
             .collect();
-        let rowbound = rowbound
-            .into_iter()
-            .map(|i| HighsIisBoundStatus::try_from(i).unwrap())
-            .collect();
-        let colstatus = colstatus
+        let model_cols_iis_status = colstatus
             .into_iter()
             .map(|i| HighsIisStatus::try_from(i).unwrap())
             .collect();
-        let rowstatus = rowstatus
+        let model_rows_iis_status = rowstatus
             .into_iter()
             .map(|i| HighsIisStatus::try_from(i).unwrap())
             .collect();
 
         Iis {
-            colindex,
-            rowindex,
-            colbound,
-            rowbound,
-            colstatus,
-            rowstatus,
+            iis_cols,
+            iis_rows,
+            model_cols_iis_status,
+            model_rows_iis_status,
         }
     }
 
@@ -910,64 +915,48 @@ impl Index<Col> for Solution {
 /// IIS: Irreducible Infeasible Subsystem
 #[derive(Clone, Debug)]
 pub struct Iis {
-    colindex: Vec<Col>,
-    rowindex: Vec<Row>,
-    colbound: Vec<HighsIisBoundStatus>,
-    rowbound: Vec<HighsIisBoundStatus>,
-    colstatus: Vec<HighsIisStatus>,
-    rowstatus: Vec<HighsIisStatus>,
+    iis_cols: Vec<(Col, HighsIisBoundStatus)>,
+    iis_rows: Vec<(Row, HighsIisBoundStatus)>,
+    model_cols_iis_status: Vec<HighsIisStatus>,
+    model_rows_iis_status: Vec<HighsIisStatus>,
 }
 
 impl Iis {
-    /// The columns (variables) that appear in the IIS
-    pub fn columns(&self) -> &[Col] {
-        &self.colindex
+    /// The columns (variables) that appear in the IIS with their bound status
+    pub fn columns(&self) -> &[(Col, HighsIisBoundStatus)] {
+        &self.iis_cols
     }
-    /// The rows (constraints) that appear in the IIS
-    pub fn rows(&self) -> &[Row] {
-        &self.rowindex
-    }
-    /// Get the IIS bound status of a column.
-    pub fn get_column_bound_status(&self, col: &Col) -> Option<HighsIisBoundStatus> {
-        self.colindex.iter().enumerate().find_map(|(i, c)| {
-            (*c == *col)
-                .then(|| self.colbound.get(i).copied())
-                .flatten()
-        })
-    }
-    /// Get the IIS bound status of a row.
-    pub fn get_row_bound_status(&self, row: &Row) -> Option<HighsIisBoundStatus> {
-        self.rowindex.iter().enumerate().find_map(|(i, r)| {
-            (*r == *row)
-                .then(|| self.rowbound.get(i).copied())
-                .flatten()
-        })
+    /// The rows (constraints) that appear in the IIS with their bound status
+    pub fn rows(&self) -> &[(Row, HighsIisBoundStatus)] {
+        &self.iis_rows
     }
     /// Whether the given column is contained in the IIS.
     pub fn contains_column(&self, col: &Col) -> bool {
         matches!(
-            self.colstatus.get(col.index()),
+            self.model_cols_iis_status.get(col.index()),
             Some(HighsIisStatus::InConflict)
         )
     }
     /// Whether the given row is contained in the IIS.
     pub fn contains_row(&self, row: &Row) -> bool {
         matches!(
-            self.rowstatus.get(usize::try_from(row.0).unwrap()),
+            self.model_rows_iis_status
+                .get(usize::try_from(row.0).unwrap()),
             Some(HighsIisStatus::InConflict)
         )
     }
     /// Whether the given column maybe is contained in the IIS.
     pub fn contains_column_maybe(&self, col: &Col) -> bool {
         matches!(
-            self.colstatus.get(col.index()),
+            self.model_cols_iis_status.get(col.index()),
             Some(HighsIisStatus::InConflict) | Some(HighsIisStatus::MaybeInConflict)
         )
     }
     /// Whether the given row maybe is contained in the IIS.
     pub fn contains_row_maybe(&self, row: &Row) -> bool {
         matches!(
-            self.rowstatus.get(usize::try_from(row.0).unwrap()),
+            self.model_rows_iis_status
+                .get(usize::try_from(row.0).unwrap()),
             Some(HighsIisStatus::InConflict) | Some(HighsIisStatus::MaybeInConflict)
         )
     }
@@ -1192,12 +1181,15 @@ mod test {
         assert_eq!(iis.colindex, vec![Col(0), Col(2)]);
         assert_eq!(iis.rowindex, vec![Row(0)]);
         assert_eq!(
-            iis.colbound,
-            vec![HighsIisBoundStatus::Lower, HighsIisBoundStatus::Lower]
+            iis.iis_cols,
+            vec![
+                (Col(0), HighsIisBoundStatus::Lower),
+                (Col(2), HighsIisBoundStatus::Lower)
+            ]
         );
-        assert_eq!(iis.rowbound, vec![HighsIisBoundStatus::Upper]);
+        assert_eq!(iis.iis_rows, vec![(Row(0), HighsIisBoundStatus::Upper)]);
         assert_eq!(
-            iis.colstatus,
+            iis.model_cols_iis_status,
             vec![
                 HighsIisStatus::InConflict,
                 HighsIisStatus::NotInConflict,
@@ -1205,7 +1197,7 @@ mod test {
             ]
         );
         assert_eq!(
-            iis.rowstatus,
+            iis.model_rows_iis_status,
             vec![HighsIisStatus::InConflict, HighsIisStatus::NotInConflict]
         );
     }
