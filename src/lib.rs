@@ -404,6 +404,106 @@ impl Model {
             .map(|_| SolvedModel { highs: self.highs })
     }
 
+    fn get_solution(&self) -> Solution {
+        let cols = self.num_cols();
+        let rows = self.num_rows();
+        let mut colvalue: Vec<f64> = vec![0.; cols];
+        let mut coldual: Vec<f64> = vec![0.; cols];
+        let mut rowvalue: Vec<f64> = vec![0.; rows];
+        let mut rowdual: Vec<f64> = vec![0.; rows];
+
+        // Get the primal and dual solution
+        unsafe {
+            Highs_getSolution(
+                self.highs.unsafe_mut_ptr(),
+                colvalue.as_mut_ptr(),
+                coldual.as_mut_ptr(),
+                rowvalue.as_mut_ptr(),
+                rowdual.as_mut_ptr(),
+            );
+        }
+
+        Solution {
+            colvalue,
+            coldual,
+            rowvalue,
+            rowdual,
+        }
+    }
+
+    /// Attempt to compute an IIS.
+    pub fn get_iis(&self) -> Iis {
+        let cols = self.num_cols();
+        let rows = self.num_rows();
+        let iis_numcol: &mut HighsInt = &mut 0;
+        let iis_numrow: &mut HighsInt = &mut 0;
+        let mut colindex: Vec<HighsInt> = vec![0; cols];
+        let mut rowindex: Vec<HighsInt> = vec![0; rows];
+        let mut colbound: Vec<HighsInt> = vec![0; cols];
+        let mut rowbound: Vec<HighsInt> = vec![0; rows];
+        let mut colstatus: Vec<HighsInt> = vec![0; cols];
+        let mut rowstatus: Vec<HighsInt> = vec![0; rows];
+
+        // Attempt to compute IIS.
+        // If no IIS is found, then the number of IIS columns and rows will be zero.
+        unsafe {
+            Highs_getIis(
+                self.highs.unsafe_mut_ptr(),
+                iis_numcol,
+                iis_numrow,
+                colindex.as_mut_ptr(),
+                rowindex.as_mut_ptr(),
+                colbound.as_mut_ptr(),
+                rowbound.as_mut_ptr(),
+                colstatus.as_mut_ptr(),
+                rowstatus.as_mut_ptr(),
+            );
+        }
+
+        let iis_numcol = usize::try_from(*iis_numcol).unwrap();
+        let iis_numrow = usize::try_from(*iis_numrow).unwrap();
+        colindex.truncate(iis_numcol);
+        rowindex.truncate(iis_numrow);
+        colbound.truncate(iis_numcol);
+        rowbound.truncate(iis_numrow);
+
+        let iis_cols = colindex
+            .into_iter()
+            .zip(colbound.into_iter())
+            .map(|(col_index, col_bound_status)| {
+                (
+                    Col(usize::try_from(col_index).unwrap()),
+                    HighsIisBoundStatus::try_from(col_bound_status).unwrap(),
+                )
+            })
+            .collect();
+        let iis_rows = rowindex
+            .into_iter()
+            .zip(rowbound.into_iter())
+            .map(|(row_index, row_bound_status)| {
+                (
+                    Row(row_index),
+                    HighsIisBoundStatus::try_from(row_bound_status).unwrap(),
+                )
+            })
+            .collect();
+        let model_cols_iis_status = colstatus
+            .into_iter()
+            .map(|i| HighsIisStatus::try_from(i).unwrap())
+            .collect();
+        let model_rows_iis_status = rowstatus
+            .into_iter()
+            .map(|i| HighsIisStatus::try_from(i).unwrap())
+            .collect();
+
+        Iis {
+            iis_cols,
+            iis_rows,
+            model_cols_iis_status,
+            model_rows_iis_status,
+        }
+    }
+
     /// Adds a new constraint to the highs model.
     ///
     /// Returns the added row index.
@@ -1178,8 +1278,6 @@ mod test {
         problem.add_row(5.., [(x, 0.), (y, 1.), (z, 0.)]); // 5 <= y
         let iis = problem.optimise(Sense::Minimise).solve().get_iis();
 
-        assert_eq!(iis.colindex, vec![Col(0), Col(2)]);
-        assert_eq!(iis.rowindex, vec![Row(0)]);
         assert_eq!(
             iis.iis_cols,
             vec![
