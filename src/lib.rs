@@ -370,6 +370,59 @@ impl Model {
         }
     }
 
+    /// TODO
+    pub fn overwrite<P: Into<Problem<ColMatrix>>>(
+        &mut self,
+        problem: P,
+    ) -> Result<(), HighsStatus> {
+        self.clear_model().unwrap();
+
+        let problem = problem.into();
+
+        let offset = 0.0;
+        unsafe {
+            if let Some(integrality) = &problem.integrality {
+                highs_call!(Highs_passMip(
+                    self.highs.mut_ptr(),
+                    c(problem.num_cols()),
+                    c(problem.num_rows()),
+                    c(problem.matrix.avalue.len()),
+                    MATRIX_FORMAT_COLUMN_WISE,
+                    OBJECTIVE_SENSE_MINIMIZE,
+                    offset,
+                    problem.colcost.as_ptr(),
+                    problem.collower.as_ptr(),
+                    problem.colupper.as_ptr(),
+                    problem.rowlower.as_ptr(),
+                    problem.rowupper.as_ptr(),
+                    problem.matrix.astart.as_ptr(),
+                    problem.matrix.aindex.as_ptr(),
+                    problem.matrix.avalue.as_ptr(),
+                    integrality.as_ptr()
+                ))
+            } else {
+                highs_call!(Highs_passLp(
+                    self.highs.mut_ptr(),
+                    c(problem.num_cols()),
+                    c(problem.num_rows()),
+                    c(problem.matrix.avalue.len()),
+                    MATRIX_FORMAT_COLUMN_WISE,
+                    OBJECTIVE_SENSE_MINIMIZE,
+                    offset,
+                    problem.colcost.as_ptr(),
+                    problem.collower.as_ptr(),
+                    problem.colupper.as_ptr(),
+                    problem.rowlower.as_ptr(),
+                    problem.rowupper.as_ptr(),
+                    problem.matrix.astart.as_ptr(),
+                    problem.matrix.aindex.as_ptr(),
+                    problem.matrix.avalue.as_ptr()
+                ))
+            }
+            .map(|_| ())
+        }
+    }
+
     /// Prevents writing anything to the standard output or to files when solving the model
     pub fn make_quiet(&mut self) {
         self.highs.make_quiet()
