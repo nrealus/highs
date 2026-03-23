@@ -234,6 +234,11 @@ where
         self.collower[col.index()] = low;
         self.colupper[col.index()] = high;
     }
+
+    /// Gets the bounds of a column
+    pub fn get_column_bounds(&self, col: Col) -> (f64, f64) {
+        (self.collower[col.index()], self.colupper[col.index()])
+    }
 }
 
 fn bound_value<N: Into<f64> + Copy>(b: Bound<&N>) -> Option<f64> {
