@@ -9,5 +9,5 @@ repository = "https://github.com/rust-or/highs"
 keywords = ["linear-programming", "optimization", "math", "solver"]
 
 [dependencies]
-highs-sys = "1.13.1"
+highs-sys = { git = "https://github.com/nrealus/highs-sys.git" }
 log = "0.4.27"
