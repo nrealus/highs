@@ -404,6 +404,38 @@ impl Model {
             .map(|_| SolvedModel { highs: self.highs })
     }
 
+    /// TODO
+    pub fn try_solve_mut(&mut self) -> Result<Result<Solution, Iis>, HighsStatus> {
+        unsafe { highs_call!(Highs_run(self.highs.mut_ptr())) }.map(|_| {
+            if self.status() == HighsModelStatus::Infeasible {
+                Err(self.get_iis())
+            } else {
+                Ok(self.get_solution())
+            }
+        })
+    }
+
+    /// The model status of the solution. Should be Optimal if everything went well.
+    pub fn status(&self) -> HighsModelStatus {
+        let model_status = unsafe { Highs_getModelStatus(self.highs.unsafe_mut_ptr()) };
+        HighsModelStatus::try_from(model_status).unwrap()
+    }
+
+    /// Clear all solution data associated with the model.
+    ///
+    /// See Highs_destroy to clear the model and free all associated memory.
+    pub fn clear_solver(&mut self) -> Result<HighsStatus, HighsStatus> {
+        unsafe { highs_call!(Highs_clearSolver(self.highs.mut_ptr())) }
+    }
+
+    /// Remove all variables and constraints from the model highs,
+    /// but do not invalidate the pointer highs.
+    ///
+    /// Future calls (for example, adding new variables and constraints) are allowed.
+    pub fn clear_model(&mut self) -> Result<HighsStatus, HighsStatus> {
+        unsafe { highs_call!(Highs_clearModel(self.highs.mut_ptr())) }
+    }
+
     fn get_solution(&self) -> Solution {
         let cols = self.num_cols();
         let rows = self.num_rows();
