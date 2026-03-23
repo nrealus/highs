@@ -18,6 +18,12 @@ impl Col {
     }
 }
 
+impl<T: Into<usize>> From<T> for Col {
+    fn from(value: T) -> Self {
+        Col(value.into())
+    }
+}
+
 /// A complete optimization problem stored by row
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct RowMatrix {
