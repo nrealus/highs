@@ -1139,7 +1139,7 @@ impl Iis {
     pub fn contains_column_maybe(&self, col: &Col) -> bool {
         matches!(
             self.model_cols_iis_status.get(col.index()),
-            Some(HighsIisStatus::InConflict) | Some(HighsIisStatus::MaybeInConflict)
+            Some(HighsIisStatus::MaybeInConflict)
         )
     }
     /// Whether the given row maybe is contained in the IIS.
@@ -1147,7 +1147,7 @@ impl Iis {
         matches!(
             self.model_rows_iis_status
                 .get(usize::try_from(row.0).unwrap()),
-            Some(HighsIisStatus::InConflict) | Some(HighsIisStatus::MaybeInConflict)
+            Some(HighsIisStatus::MaybeInConflict)
         )
     }
 }
