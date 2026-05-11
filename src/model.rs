@@ -141,6 +141,17 @@ impl Model {
         self.highs.mut_ptr()
     }
 
+    /// Create an empty model with no variables or constraints.
+    ///
+    /// Populate it incrementally using [`Model::add_col`] and [`Model::add_row`].
+    pub fn default(sense: Sense) -> Self {
+        let mut highs = HighsPtr::default();
+        highs.make_quiet();
+        let mut model = Self { highs };
+        model.set_sense(sense);
+        model
+    }
+
     /// Create a model from a problem reference.
     /// Returns `Err` if HiGHS rejects the problem data.
     pub fn new<M: AsHighsMatrix + Default>(
