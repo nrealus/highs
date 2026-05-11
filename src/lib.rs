@@ -76,8 +76,7 @@ pub use model::{Iis, Model, Sense, Solution};
 pub use options::HighsOptionValue;
 pub use problem::{AsHighsMatrix, Col, ColMatrix, ColProblem, Problem, Row, RowMatrix, RowProblem};
 pub use status::{
-    HighsIisBoundStatus, HighsIisStatus, HighsModelStatus, HighsSolutionStatus,
-    HighsStatus,
+    HighsIisBoundStatus, HighsIisStatus, HighsModelStatus, HighsSolutionStatus, HighsStatus,
 };
 
 #[cfg(test)]
@@ -161,8 +160,7 @@ mod tests {
 
     #[test]
     fn add_row_and_col_to_live_model() {
-        let mut model =
-            Model::new(&ColProblem::default(), Sense::Minimise).unwrap();
+        let mut model = Model::new(&ColProblem::default(), Sense::Minimise).unwrap();
         let col = model.add_col(1., 1.., vec![]).unwrap();
         model.add_row(..1., vec![(col, 1.)]).unwrap();
         model.solve().unwrap();
@@ -172,8 +170,7 @@ mod tests {
 
     #[test]
     fn incremental_infeasible() {
-        let mut model =
-            Model::new(&ColProblem::default(), Sense::Minimise).unwrap();
+        let mut model = Model::new(&ColProblem::default(), Sense::Minimise).unwrap();
         let col = model.add_col(1., 1.., vec![]).unwrap();
         model.add_row(..0.5, vec![(col, 1.)]).unwrap(); // col >= 1 but row <= 0.5
         model.solve().unwrap();
@@ -187,7 +184,7 @@ mod tests {
         let y = pb.add_column(0., 1..); // y >= 1
         let z = pb.add_column(0., 1..); // z >= 1
         pb.add_row(..=1.1, [(x, 1.), (z, 1.)]); // x + z <= 1.1  (infeasible with x,z>=1)
-        pb.add_row(5.., [(y, 1.)]);              // y >= 5  (independent)
+        pb.add_row(5.., [(y, 1.)]); // y >= 5  (independent)
 
         let mut model = Model::new(&pb, Sense::Minimise).unwrap();
         model.solve().unwrap();
@@ -228,8 +225,7 @@ mod tests {
 
     #[test]
     fn objective_value_empty_model() {
-        let mut model =
-            Model::new(&RowProblem::default(), Sense::Minimise).unwrap();
+        let mut model = Model::new(&RowProblem::default(), Sense::Minimise).unwrap();
         model.solve().unwrap();
         assert_eq!(model.get_objective_value(), 0.0);
     }
@@ -284,5 +280,4 @@ mod tests {
         assert_eq!(model.status(), HighsModelStatus::Optimal);
         assert_eq!(model.get_solution().columns(), &[50.0]);
     }
-
 }

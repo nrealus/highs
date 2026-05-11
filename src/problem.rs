@@ -49,13 +49,13 @@ pub trait AsHighsMatrix {
     /// The HiGHS matrix format constant.
     fn highs_format() -> HighsInt;
 
-    /// `a_start` array: length = number of columns (CSC) or rows (CSR). // FIXME?
+    /// `a_start` array: length = number of columns for CSC, number of rows for CSR.
     fn astart(&self) -> &[c_int];
 
-    /// `a_index` array: length = number of nonzeros. // FIXME?
+    /// `a_index` array: row indices (CSC) or column indices (CSR) of each nonzero.
     fn aindex(&self) -> &[c_int];
 
-    /// `a_value` array: length = number of nonzeros. // FIXME?
+    /// `a_value` array: values of each nonzero, parallel to `a_index`.
     fn avalue(&self) -> &[f64];
 
     /// Number of nonzeros.
@@ -72,9 +72,9 @@ pub trait AsHighsMatrix {
 pub struct ColMatrix {
     /// `astart[j]` = start of column `j` in `aindex`/`avalue`. Length = num_cols.
     pub(crate) astart: Vec<c_int>,
-    /// Row indices of nonzeros. Length = num_nz. // FIXME?
+    /// Row indices of each nonzero, parallel to `avalue`.
     pub(crate) aindex: Vec<c_int>,
-    /// Values of nonzeros. Length = num_nz. // FIXME?
+    /// Values of each nonzero, parallel to `aindex`.
     pub(crate) avalue: Vec<f64>,
 }
 
@@ -99,11 +99,11 @@ impl AsHighsMatrix for ColMatrix {
 /// one at a time via [`RowProblem::add_row`].
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct RowMatrix {
-    /// `astart[i]` = start of row `i` in `aindex`/`avalue`. Length = num_rows. // FIXME?
+    /// `astart[i]` = start of row `i` in `aindex`/`avalue`.
     pub(crate) astart: Vec<c_int>,
-    /// Column indices of nonzeros. Length = num_nz. // FIXME?
+    /// Column indices of each nonzero, parallel to `avalue`.
     pub(crate) aindex: Vec<c_int>,
-    /// Values of nonzeros. Length = num_nz. // FIXME?
+    /// Values of each nonzero, parallel to `aindex`.
     pub(crate) avalue: Vec<f64>,
 }
 
@@ -128,7 +128,6 @@ impl AsHighsMatrix for RowMatrix {
 /// one by one, or [`RowProblem`] when you add constraints one by one.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Problem<MATRIX = ColMatrix> {
-
     pub(crate) colcost: Vec<f64>,
     pub(crate) collower: Vec<f64>,
     pub(crate) colupper: Vec<f64>,
@@ -163,10 +162,8 @@ impl<MATRIX: Default + AsHighsMatrix> Problem<MATRIX> {
         col: Col,
         bounds: B,
     ) {
-        self.collower[col.0] =
-            bound_value(bounds.start_bound()).unwrap_or(f64::NEG_INFINITY);
-        self.colupper[col.0] =
-            bound_value(bounds.end_bound()).unwrap_or(f64::INFINITY);
+        self.collower[col.0] = bound_value(bounds.start_bound()).unwrap_or(f64::NEG_INFINITY);
+        self.colupper[col.0] = bound_value(bounds.end_bound()).unwrap_or(f64::INFINITY);
     }
 
     /// Get the bounds `(lower, upper)` of a variable.

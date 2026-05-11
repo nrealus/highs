@@ -223,9 +223,7 @@ impl Model {
     pub fn status(&self) -> HighsModelStatus {
         let raw = unsafe { Highs_getModelStatus(self.highs.ptr()) };
         HighsModelStatus::try_from(raw)
-            .unwrap_or_else(|InvalidStatus(n)| {
-                panic!("HiGHS returned unexpected model status {n}")
-            })
+            .unwrap_or_else(|InvalidStatus(n)| panic!("HiGHS returned unexpected model status {n}"))
     }
 
     /// Objective value after the last solve.
@@ -250,7 +248,12 @@ impl Model {
                 rowdual.as_mut_ptr(),
             );
         }
-        Solution { colvalue, coldual, rowvalue, rowdual }
+        Solution {
+            colvalue,
+            coldual,
+            rowvalue,
+            rowdual,
+        }
     }
 
     /// Compute an IIS (Irreducible Infeasible Subsystem) after an infeasible solve.
@@ -311,14 +314,17 @@ impl Model {
             .map(|s| HighsIisStatus::try_from(s).unwrap())
             .collect();
 
-        Iis { iis_cols, iis_rows, model_cols_iis_status, model_rows_iis_status }
+        Iis {
+            iis_cols,
+            iis_rows,
+            model_cols_iis_status,
+            model_rows_iis_status,
+        }
     }
 
     /// Set the optimization sense (min/max).
     pub fn set_sense(&mut self, sense: Sense) {
-        let ret = unsafe {
-            Highs_changeObjectiveSense(self.highs.mut_ptr(), sense as c_int)
-        };
+        let ret = unsafe { Highs_changeObjectiveSense(self.highs.mut_ptr(), sense as c_int) };
         assert_eq!(ret, STATUS_OK, "changeObjectiveSense failed");
     }
 
@@ -331,14 +337,9 @@ impl Model {
     /// Set a HiGHS solver option by name.
     ///
     /// See <https://ergo-code.github.io/HiGHS/dev/options/definitions/> for available options.
-    pub fn set_option<S: Into<Vec<u8>>, V: HighsOptionValue>(
-        &mut self,
-        option: S,
-        value: V,
-    ) {
+    pub fn set_option<S: Into<Vec<u8>>, V: HighsOptionValue>(&mut self, option: S, value: V) {
         let c_str = CString::new(option).expect("invalid option name");
-        let status =
-            unsafe { value.apply_to_highs(self.highs.mut_ptr(), c_str.as_ptr()) };
+        let status = unsafe { value.apply_to_highs(self.highs.mut_ptr(), c_str.as_ptr()) };
         try_handle_status(status, "Highs_setOptionValue")
             .expect("An error was encountered in HiGHS.");
     }
@@ -352,8 +353,7 @@ impl Model {
         col_factors: impl IntoIterator<Item = (Col, f64)>,
     ) -> Result<Row, HighsStatus> {
         let (cols, factors): (Vec<_>, Vec<_>) = col_factors.into_iter().unzip();
-        let col_indices: Vec<c_int> =
-            cols.iter().map(|c| c.0.try_into().unwrap()).collect();
+        let col_indices: Vec<c_int> = cols.iter().map(|c| c.0.try_into().unwrap()).collect();
         unsafe {
             highs_call!(Highs_addRow(
                 self.highs.mut_ptr(),
@@ -430,9 +430,7 @@ impl Model {
         problem: &Problem<M>,
         sense: Sense,
     ) -> Result<(), HighsStatus> {
-        unsafe {
-            highs_call!(Highs_clearModel(self.highs.mut_ptr()))
-        }?;
+        unsafe { highs_call!(Highs_clearModel(self.highs.mut_ptr())) }?;
         unsafe { Self::pass_problem(&mut self.highs, problem) }?;
         self.set_sense(sense);
         Ok(())

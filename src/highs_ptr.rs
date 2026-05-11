@@ -7,10 +7,7 @@ use highs_sys::*;
 
 use crate::status::HighsStatus;
 
-pub(crate) fn try_handle_status(
-    status: c_int,
-    msg: &str,
-) -> Result<HighsStatus, HighsStatus> {
+pub(crate) fn try_handle_status(status: c_int, msg: &str) -> Result<HighsStatus, HighsStatus> {
     let status_enum = HighsStatus::try_from(status)
         .expect("HiGHS returned an unexpected status value. Please report it as a bug.");
     match status_enum {
