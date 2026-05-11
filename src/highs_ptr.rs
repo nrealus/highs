@@ -1,10 +1,11 @@
 use std::convert::TryFrom;
-use std::ffi::c_void;
+use std::ffi::{c_void, CString};
 use std::num::TryFromIntError;
 use std::os::raw::c_int;
 
 use highs_sys::*;
 
+use crate::options::HighsOptionValue;
 use crate::status::HighsStatus;
 
 pub(crate) fn try_handle_status(status: c_int, msg: &str) -> Result<HighsStatus, HighsStatus> {
@@ -65,6 +66,24 @@ impl HighsPtr {
     /// Callers must ensure no aliased mutation occurs.
     pub(crate) unsafe fn unsafe_mut_ptr(&self) -> *mut c_void {
         self.0
+    }
+
+    /// Suppress all terminal / file output from HiGHS.
+    pub(crate) fn make_quiet(&mut self) {
+        self.set_option(&b"output_flag"[..], false);
+        self.set_option(&b"log_to_console"[..], false);
+    }
+
+    /// Set a HiGHS solver option by name.
+    pub(crate) fn set_option<S: Into<Vec<u8>>, V: HighsOptionValue>(
+        &mut self,
+        option: S,
+        value: V,
+    ) {
+        let c_str = CString::new(option).expect("invalid option name");
+        let status = unsafe { value.apply_to_highs(self.mut_ptr(), c_str.as_ptr()) };
+        try_handle_status(status, "Highs_setOptionValue")
+            .expect("An error was encountered in HiGHS.");
     }
 
     /// Number of columns currently in the model.

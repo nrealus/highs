@@ -1,7 +1,6 @@
 use std::convert::TryFrom;
 use std::fmt::{Debug, Formatter};
 use std::num::TryFromIntError;
-use std::os::raw::c_int;
 
 use highs_sys::*;
 
@@ -57,7 +56,7 @@ pub enum HighsModelStatus {
 
 /// This error should never happen: an unexpected status was returned
 #[derive(PartialEq, Clone, Copy)]
-pub struct InvalidStatus(pub c_int);
+pub struct InvalidStatus(pub HighsInt);
 
 impl Debug for InvalidStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -71,10 +70,10 @@ impl Debug for InvalidStatus {
     }
 }
 
-impl TryFrom<c_int> for HighsModelStatus {
+impl TryFrom<HighsInt> for HighsModelStatus {
     type Error = InvalidStatus;
 
-    fn try_from(value: c_int) -> Result<Self, Self::Error> {
+    fn try_from(value: HighsInt) -> Result<Self, Self::Error> {
         match value {
             MODEL_STATUS_NOTSET => Ok(Self::NotSet),
             MODEL_STATUS_LOAD_ERROR => Ok(Self::LoadError),
@@ -117,10 +116,10 @@ impl From<TryFromIntError> for HighsStatus {
     }
 }
 
-impl TryFrom<c_int> for HighsStatus {
+impl TryFrom<HighsInt> for HighsStatus {
     type Error = InvalidStatus;
 
-    fn try_from(value: c_int) -> Result<Self, InvalidStatus> {
+    fn try_from(value: HighsInt) -> Result<Self, InvalidStatus> {
         match value {
             STATUS_OK => Ok(Self::OK),
             STATUS_WARNING => Ok(Self::Warning),
@@ -141,10 +140,10 @@ pub enum HighsSolutionStatus {
     Feasible = SOLUTION_STATUS_FEASIBLE as isize,
 }
 
-impl TryFrom<c_int> for HighsSolutionStatus {
+impl TryFrom<HighsInt> for HighsSolutionStatus {
     type Error = InvalidStatus;
 
-    fn try_from(value: c_int) -> Result<Self, Self::Error> {
+    fn try_from(value: HighsInt) -> Result<Self, Self::Error> {
         match value {
             SOLUTION_STATUS_NONE => Ok(Self::None),
             SOLUTION_STATUS_INFEASIBLE => Ok(Self::Infeasible),
@@ -171,10 +170,10 @@ pub enum HighsIisBoundStatus {
     Boxed = IIS_BOUND_STATUS_BOXED as isize,
 }
 
-impl TryFrom<c_int> for HighsIisBoundStatus {
+impl TryFrom<HighsInt> for HighsIisBoundStatus {
     type Error = InvalidStatus;
 
-    fn try_from(value: c_int) -> Result<Self, Self::Error> {
+    fn try_from(value: HighsInt) -> Result<Self, Self::Error> {
         match value {
             IIS_BOUND_STATUS_DROPPED => Ok(Self::Dropped),
             IIS_BOUND_STATUS_NULL => Ok(Self::Null),
@@ -198,10 +197,10 @@ pub enum HighsIisStatus {
     InConflict = IIS_STATUS_IN_CONFLICT as isize,
 }
 
-impl TryFrom<c_int> for HighsIisStatus {
+impl TryFrom<HighsInt> for HighsIisStatus {
     type Error = InvalidStatus;
 
-    fn try_from(value: c_int) -> Result<Self, Self::Error> {
+    fn try_from(value: HighsInt) -> Result<Self, Self::Error> {
         match value {
             IIS_STATUS_NOT_IN_CONFLICT => Ok(Self::NotInConflict),
             IIS_STATUS_MAYBE_IN_CONFLICT => Ok(Self::MaybeInConflict),
@@ -221,10 +220,10 @@ pub enum HighsIisModelStatus {
     Irreducible = IIS_MODEL_STATUS_IRREDUCIBLE as isize,
 }
 
-impl TryFrom<c_int> for HighsIisModelStatus {
+impl TryFrom<HighsInt> for HighsIisModelStatus {
     type Error = InvalidStatus;
 
-    fn try_from(value: c_int) -> Result<Self, Self::Error> {
+    fn try_from(value: HighsInt) -> Result<Self, Self::Error> {
         match value {
             IIS_MODEL_STATUS_FEASIBLE => Ok(Self::Feasible),
             IIS_MODEL_STATUS_UNKNOWN => Ok(Self::Unknown),

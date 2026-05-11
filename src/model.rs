@@ -1,12 +1,10 @@
 use std::convert::{TryFrom, TryInto};
-use std::ffi::CString;
 use std::ops::{Index, RangeBounds};
-use std::os::raw::c_int;
 use std::ptr::null;
 
 use highs_sys::*;
 
-use crate::highs_ptr::{highs_call, try_handle_status, HighsPtr};
+use crate::highs_ptr::{highs_call, HighsPtr};
 use crate::options::HighsOptionValue;
 use crate::problem::{bound_value, c, AsHighsMatrix, Col, Problem, Row};
 use crate::status::{
@@ -335,24 +333,20 @@ impl Model {
 
     /// Set the optimization sense (min/max).
     pub fn set_sense(&mut self, sense: Sense) {
-        let ret = unsafe { Highs_changeObjectiveSense(self.highs.mut_ptr(), sense as c_int) };
+        let ret = unsafe { Highs_changeObjectiveSense(self.highs.mut_ptr(), sense as HighsInt) };
         assert_eq!(ret, STATUS_OK, "changeObjectiveSense failed");
     }
 
     /// Suppress all terminal / file output from HiGHS.
     pub fn make_quiet(&mut self) {
-        self.set_option(&b"output_flag"[..], false);
-        self.set_option(&b"log_to_console"[..], false);
+        self.highs.make_quiet();
     }
 
     /// Set a HiGHS solver option by name.
     ///
     /// See <https://ergo-code.github.io/HiGHS/dev/options/definitions/> for available options.
     pub fn set_option<S: Into<Vec<u8>>, V: HighsOptionValue>(&mut self, option: S, value: V) {
-        let c_str = CString::new(option).expect("invalid option name");
-        let status = unsafe { value.apply_to_highs(self.highs.mut_ptr(), c_str.as_ptr()) };
-        try_handle_status(status, "Highs_setOptionValue")
-            .expect("An error was encountered in HiGHS.");
+        self.highs.set_option(option, value);
     }
 
     /// Add a new constraint to the live model.
@@ -364,7 +358,7 @@ impl Model {
         col_factors: impl IntoIterator<Item = (Col, f64)>,
     ) -> Result<Row, HighsStatus> {
         let (cols, factors): (Vec<_>, Vec<_>) = col_factors.into_iter().unzip();
-        let col_indices: Vec<c_int> = cols.iter().map(|c| c.0.try_into().unwrap()).collect();
+        let col_indices: Vec<HighsInt> = cols.iter().map(|c| c.0.try_into().unwrap()).collect();
         unsafe {
             highs_call!(Highs_addRow(
                 self.highs.mut_ptr(),
@@ -375,7 +369,7 @@ impl Model {
                 factors.as_ptr()
             ))
         }?;
-        Ok(Row((self.highs.num_rows()? - 1) as c_int))
+        Ok(Row((self.highs.num_rows()? - 1) as HighsInt))
     }
 
     /// Add a new continuous variable to the live model.
@@ -388,7 +382,7 @@ impl Model {
         row_factors: impl IntoIterator<Item = (Row, f64)>,
     ) -> Result<Col, HighsStatus> {
         let (rows, factors): (Vec<_>, Vec<_>) = row_factors.into_iter().unzip();
-        let row_indices: Vec<c_int> = rows.iter().map(|r| r.0).collect();
+        let row_indices: Vec<HighsInt> = rows.iter().map(|r| r.0).collect();
         unsafe {
             highs_call!(Highs_addCol(
                 self.highs.mut_ptr(),
@@ -408,7 +402,7 @@ impl Model {
         unsafe {
             highs_call!(Highs_changeColCost(
                 self.highs.mut_ptr(),
-                col.0 as c_int,
+                col.0 as HighsInt,
                 cost
             ))
             .expect("Highs_changeColCost failed");
@@ -424,7 +418,7 @@ impl Model {
         unsafe {
             highs_call!(Highs_changeColBounds(
                 self.highs.mut_ptr(),
-                col.0 as c_int,
+                col.0 as HighsInt,
                 bound_value(bounds.start_bound()).unwrap_or(f64::NEG_INFINITY),
                 bound_value(bounds.end_bound()).unwrap_or(f64::INFINITY)
             ))

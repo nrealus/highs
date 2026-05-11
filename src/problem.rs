@@ -1,6 +1,5 @@
 use std::convert::TryInto;
 use std::ops::{Bound, RangeBounds};
-use std::os::raw::c_int;
 
 use highs_sys::HighsInt;
 
@@ -33,7 +32,7 @@ impl<T: Into<usize>> From<T> for Col {
 
 /// A constraint (row) index.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Row(pub(crate) c_int);
+pub struct Row(pub(crate) HighsInt);
 
 impl Row {
     pub fn index(self) -> usize {
@@ -50,10 +49,10 @@ pub trait AsHighsMatrix {
     fn highs_format() -> HighsInt;
 
     /// `a_start` array: length = number of columns for CSC, number of rows for CSR.
-    fn astart(&self) -> &[c_int];
+    fn astart(&self) -> &[HighsInt];
 
     /// `a_index` array: row indices (CSC) or column indices (CSR) of each nonzero.
-    fn aindex(&self) -> &[c_int];
+    fn aindex(&self) -> &[HighsInt];
 
     /// `a_value` array: values of each nonzero, parallel to `a_index`.
     fn avalue(&self) -> &[f64];
@@ -71,9 +70,9 @@ pub trait AsHighsMatrix {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ColMatrix {
     /// `astart[j]` = start of column `j` in `aindex`/`avalue`. Length = num_cols.
-    pub(crate) astart: Vec<c_int>,
+    pub(crate) astart: Vec<HighsInt>,
     /// Row indices of each nonzero, parallel to `avalue`.
-    pub(crate) aindex: Vec<c_int>,
+    pub(crate) aindex: Vec<HighsInt>,
     /// Values of each nonzero, parallel to `aindex`.
     pub(crate) avalue: Vec<f64>,
 }
@@ -82,10 +81,10 @@ impl AsHighsMatrix for ColMatrix {
     fn highs_format() -> HighsInt {
         highs_sys::MATRIX_FORMAT_COLUMN_WISE
     }
-    fn astart(&self) -> &[c_int] {
+    fn astart(&self) -> &[HighsInt] {
         &self.astart
     }
-    fn aindex(&self) -> &[c_int] {
+    fn aindex(&self) -> &[HighsInt] {
         &self.aindex
     }
     fn avalue(&self) -> &[f64] {
@@ -100,9 +99,9 @@ impl AsHighsMatrix for ColMatrix {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct RowMatrix {
     /// `astart[i]` = start of row `i` in `aindex`/`avalue`.
-    pub(crate) astart: Vec<c_int>,
+    pub(crate) astart: Vec<HighsInt>,
     /// Column indices of each nonzero, parallel to `avalue`.
-    pub(crate) aindex: Vec<c_int>,
+    pub(crate) aindex: Vec<HighsInt>,
     /// Values of each nonzero, parallel to `aindex`.
     pub(crate) avalue: Vec<f64>,
 }
@@ -111,10 +110,10 @@ impl AsHighsMatrix for RowMatrix {
     fn highs_format() -> HighsInt {
         highs_sys::MATRIX_FORMAT_ROW_WISE
     }
-    fn astart(&self) -> &[c_int] {
+    fn astart(&self) -> &[HighsInt] {
         &self.astart
     }
-    fn aindex(&self) -> &[c_int] {
+    fn aindex(&self) -> &[HighsInt] {
         &self.aindex
     }
     fn avalue(&self) -> &[f64] {
