@@ -24,8 +24,9 @@ pub enum HighsModelStatus {
     /// No variables in the model: nothing to optimize
     /// ```
     /// use highs::*;
-    /// let solved = ColProblem::new().optimise(Sense::Maximise).solve();
-    /// assert_eq!(solved.status(), HighsModelStatus::ModelEmpty);
+    /// let mut model = Model::new(&ColProblem::new(), Sense::Maximise).unwrap();
+    /// model.solve().unwrap();
+    /// assert_eq!(model.status(), HighsModelStatus::ModelEmpty);
     /// ```
     ModelEmpty = MODEL_STATUS_MODEL_EMPTY as isize,
     /// There is no solution to the problem
@@ -209,3 +210,28 @@ impl TryFrom<c_int> for HighsIisStatus {
         }
     }
 }
+
+/*/// The status of an IIS model
+#[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Ord, Eq)]
+pub enum HighsIisModelStatus {
+    Feasible = IIS_MODEL_STATUS_FEASIBLE as isize,
+    Unknown = IIS_MODEL_STATUS_UNKNOWN as isize,
+    Infeasible = IIS_MODEL_STATUS_INFEASIBLE as isize,
+    Reducible = IIS_MODEL_STATUS_REDUCIBLE as isize,
+    Irreducible = IIS_MODEL_STATUS_IRREDUCIBLE as isize,
+}
+
+impl TryFrom<c_int> for HighsIisModelStatus {
+    type Error = InvalidStatus;
+
+    fn try_from(value: c_int) -> Result<Self, Self::Error> {
+        match value {
+            IIS_MODEL_STATUS_FEASIBLE => Ok(Self::Feasible),
+            IIS_MODEL_STATUS_UNKNOWN => Ok(Self::Unknown),
+            IIS_MODEL_STATUS_INFEASIBLE => Ok(Self::Infeasible),
+            IIS_MODEL_STATUS_REDUCIBLE => Ok(Self::Reducible),
+            IIS_MODEL_STATUS_IRREDUCIBLE => Ok(Self::Irreducible),
+            n => Err(InvalidStatus(n)),
+        }
+    }
+}*/
