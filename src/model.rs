@@ -587,9 +587,10 @@ impl Model {
         Ok(())
     }
 
-    /// Reset all solver state while keeping the problem data.
+    /// Reset all solver state (basis, solution, infeasibility certificates) while keeping the problem data intact.
     ///
-    /// Call this to force a cold restart on the next solve.
+    /// Use this to recover from an infeasible or otherwise undesirable solve
+    /// result and force a clean cold restart on the next call to [`Model::solve`].
     pub fn clear_solver(&mut self) -> Result<HighsStatus, HighsStatus> {
         unsafe { highs_call!(Highs_clearSolver(self.highs.mut_ptr())) }
     }
