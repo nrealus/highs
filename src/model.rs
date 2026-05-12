@@ -321,6 +321,22 @@ impl Model {
         Ok(self.get_status())
     }
 
+    /// Run the solver and return the solution or IIS directly.
+    ///
+    /// - `Ok(Ok(solution))` — optimal (or otherwise feasible) solution found
+    /// - `Ok(Err(iis))` — model is infeasible; IIS is computed and returned
+    /// - `Err(status)` — HiGHS API error
+    ///
+    /// The model stays alive after the call and can be modified and re-solved.
+    pub fn solve_or_iis(&mut self) -> Result<Result<Solution, Iis>, HighsStatus> {
+        unsafe { highs_call!(Highs_run(self.highs.mut_ptr())) }?;
+        if self.get_status() == HighsModelStatus::Infeasible {
+            Ok(Err(self.get_iis()))
+        } else {
+            Ok(Ok(self.get_solution()))
+        }
+    }
+
     /// Number of columns (variables) in the model.
     pub fn num_columns(&self) -> usize {
         self.highs.num_cols().expect("Invalid number of columns")
