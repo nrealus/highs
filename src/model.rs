@@ -1,6 +1,6 @@
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Index, RangeBounds};
-use std::ptr::null;
+use std::ptr::{null, null_mut};
 
 use highs_sys::*;
 
@@ -109,6 +109,15 @@ impl Iis {
 /// The model owns a HiGHS solver instance.
 /// It can be solved multiple times (warm-starting is automatic) and modified between solves.
 ///
+/// # Cloning
+///
+/// `Model` implements `Clone`. The clone preserves:
+/// - All LP data (variables, constraints, bounds, costs, objective sense)
+/// - Basis / warm-start state, if a solve has been run
+///
+/// The following are **not** preserved and must be re-applied by the caller on the clone:
+/// - Solver options (`time_limit`, `solver`, `presolve`, `threads`, etc.)
+///
 /// # Example
 /// ```
 /// use highs::{Model, RowProblem, Sense, HighsModelStatus};
@@ -126,6 +135,100 @@ impl Iis {
 #[derive(Debug)]
 pub struct Model {
     highs: HighsPtr,
+}
+
+impl Clone for Model {
+    /// Clone this model.
+    ///
+    /// Preserves LP data, objective sense, and basis (warm-start state) if a solve has been run.
+    ///
+    /// **Not** preserved: solver options (`time_limit`, `solver`, `presolve`, `threads`, etc.).
+    /// The caller is responsible for re-applying any options on the cloned model.
+    fn clone(&self) -> Self {
+        let cols = self.num_cols();
+        let rows = self.num_rows();
+        let nz = self.num_nz();
+
+        // extract LP data
+        let mut num_col: HighsInt = 0;
+        let mut num_row: HighsInt = 0;
+        let mut num_nz: HighsInt = 0;
+        let mut sense: HighsInt = 0;
+        let mut offset: f64 = 0.0;
+        let mut col_cost = vec![0_f64; cols];
+        let mut col_lower = vec![0_f64; cols];
+        let mut col_upper = vec![0_f64; cols];
+        let mut row_lower = vec![0_f64; rows];
+        let mut row_upper = vec![0_f64; rows];
+        let mut a_start = vec![0 as HighsInt; cols];
+        let mut a_index = vec![0 as HighsInt; nz];
+        let mut a_value = vec![0_f64; nz];
+
+        unsafe {
+            Highs_getLp(
+                self.highs.ptr(),
+                MATRIX_FORMAT_COLUMN_WISE,
+                &mut num_col,
+                &mut num_row,
+                &mut num_nz,
+                &mut sense,
+                &mut offset,
+                col_cost.as_mut_ptr(),
+                col_lower.as_mut_ptr(),
+                col_upper.as_mut_ptr(),
+                row_lower.as_mut_ptr(),
+                row_upper.as_mut_ptr(),
+                a_start.as_mut_ptr(),
+                a_index.as_mut_ptr(),
+                a_value.as_mut_ptr(),
+                null_mut(),
+            );
+        }
+
+        // build new HiGHS instance
+        let mut highs = HighsPtr::default();
+        highs.make_quiet();
+
+        unsafe {
+            Highs_passLp(
+                highs.mut_ptr(),
+                num_col,
+                num_row,
+                num_nz,
+                MATRIX_FORMAT_COLUMN_WISE,
+                sense,
+                offset,
+                col_cost.as_ptr(),
+                col_lower.as_ptr(),
+                col_upper.as_ptr(),
+                row_lower.as_ptr(),
+                row_upper.as_ptr(),
+                a_start.as_ptr(),
+                a_index.as_ptr(),
+                a_value.as_ptr(),
+            );
+        }
+
+        // restore basis if a solve has been run
+        if self.status() != HighsModelStatus::NotSet {
+            let mut col_status = vec![0 as HighsInt; cols];
+            let mut row_status = vec![0 as HighsInt; rows];
+            let ok = unsafe {
+                Highs_getBasis(
+                    self.highs.ptr(),
+                    col_status.as_mut_ptr(),
+                    row_status.as_mut_ptr(),
+                )
+            };
+            if ok == STATUS_OK {
+                unsafe {
+                    Highs_setBasis(highs.mut_ptr(), col_status.as_ptr(), row_status.as_ptr());
+                }
+            }
+        }
+
+        Self { highs }
+    }
 }
 
 impl Model {
@@ -226,6 +329,11 @@ impl Model {
     /// Number of rows (constraints) in the model.
     pub fn num_rows(&self) -> usize {
         self.highs.num_rows().expect("Invalid number of rows")
+    }
+
+    /// Number of nonzeros in the constraint matrix.
+    pub fn num_nz(&self) -> usize {
+        self.highs.num_nz().expect("Invalid number of nonzeros")
     }
 
     /// The model status after the last solve.

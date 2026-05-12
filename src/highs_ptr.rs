@@ -95,4 +95,9 @@ impl HighsPtr {
     pub(crate) fn num_rows(&self) -> Result<usize, TryFromIntError> {
         unsafe { Highs_getNumRows(self.0) }.try_into()
     }
+
+    /// Number of nonzeros in the constraint matrix.
+    pub(crate) fn num_nz(&self) -> Result<usize, TryFromIntError> {
+        unsafe { Highs_getNumNz(self.0) }.try_into()
+    }
 }

@@ -268,6 +268,48 @@ mod tests {
     }
 
     #[test]
+    fn clone_preserves_lp_and_basis() {
+        let mut pb = RowProblem::new();
+        let x = pb.add_column(1., 0..);
+        let y = pb.add_column(2., 0..);
+        pb.add_row(..=6., [(x, 3.), (y, 1.)]);
+
+        let mut model = Model::new(&pb, Sense::Maximise).unwrap();
+        model.solve().unwrap();
+        assert_eq!(model.status(), HighsModelStatus::Optimal);
+        assert_eq!(model.get_solution().columns(), &[0., 6.]);
+
+        // clone should have the same LP data and basis
+        let mut clone = model.clone();
+        assert_eq!(clone.num_cols(), model.num_cols());
+        assert_eq!(clone.num_rows(), model.num_rows());
+
+        // re-solving the clone from the preserved basis should yield the same result
+        clone.solve().unwrap();
+        assert_eq!(clone.status(), HighsModelStatus::Optimal);
+        assert_eq!(clone.get_solution().columns(), &[0., 6.]);
+
+        // modifying the clone must not affect the original
+        clone.change_column_bounds(x, 1..);
+        clone.solve().unwrap();
+        assert_eq!(clone.get_objective_value(), 7.0); // max x+2y s.t. 3x+y<=6, x>=1 => x=1,y=3 => obj=7
+        model.solve().unwrap();
+        assert_eq!(model.get_solution().columns(), &[0., 6.]); // original unchanged
+    }
+
+    #[test]
+    fn clone_before_solve_has_no_basis() {
+        let mut pb = RowProblem::new();
+        pb.add_column(1., 0..10);
+        let model = Model::new(&pb, Sense::Maximise).unwrap();
+        // clone before any solve — should still be valid and solvable
+        let mut clone = model.clone();
+        clone.solve().unwrap();
+        assert_eq!(clone.status(), HighsModelStatus::Optimal);
+        assert_eq!(clone.get_solution().columns(), &[10.]);
+    }
+
+    #[test]
     fn set_solution_hint() {
         let mut pb = RowProblem::new();
         pb.add_column(1., 0..50);
