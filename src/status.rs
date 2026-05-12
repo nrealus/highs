@@ -25,7 +25,7 @@ pub enum HighsModelStatus {
     /// use highs::*;
     /// let mut model = Model::new(&ColProblem::new(), Sense::Maximise).unwrap();
     /// model.solve().unwrap();
-    /// assert_eq!(model.status(), HighsModelStatus::ModelEmpty);
+    /// assert_eq!(model.get_status(), HighsModelStatus::ModelEmpty);
     /// ```
     ModelEmpty = MODEL_STATUS_MODEL_EMPTY as isize,
     /// There is no solution to the problem

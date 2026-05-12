@@ -15,7 +15,7 @@
 //!
 //! let mut model = Model::new(&pb, Sense::Maximise).unwrap();
 //! model.solve().unwrap();
-//! assert_eq!(model.status(), HighsModelStatus::Optimal);
+//! assert_eq!(model.get_status(), HighsModelStatus::Optimal);
 //! let sol = model.get_solution();
 //! assert_eq!(sol.columns(), &[0., 6.]);
 //! ```
@@ -35,7 +35,7 @@
 //!
 //! let mut model = Model::new(&pb, Sense::Maximise).unwrap();
 //! model.solve().unwrap();
-//! assert_eq!(model.status(), HighsModelStatus::Optimal);
+//! assert_eq!(model.get_status(), HighsModelStatus::Optimal);
 //! assert_eq!(model.get_solution().columns(), &[0., 6., 0.5]);
 //! ```
 //!
