@@ -145,7 +145,7 @@ impl Clone for Model {
     /// **Not** preserved: solver options (`time_limit`, `solver`, `presolve`, `threads`, etc.).
     /// The caller is responsible for re-applying any options on the cloned model.
     fn clone(&self) -> Self {
-        let cols = self.num_cols();
+        let cols = self.num_columns();
         let rows = self.num_rows();
         let nz = self.num_nz();
 
@@ -322,7 +322,7 @@ impl Model {
     }
 
     /// Number of columns (variables) in the model.
-    pub fn num_cols(&self) -> usize {
+    pub fn num_columns(&self) -> usize {
         self.highs.num_cols().expect("Invalid number of columns")
     }
 
@@ -350,7 +350,7 @@ impl Model {
 
     /// Primal/dual solution after a successful solve.
     pub fn get_solution(&self) -> Solution {
-        let cols = self.num_cols();
+        let cols = self.num_columns();
         let rows = self.num_rows();
         let mut colvalue = vec![0_f64; cols];
         let mut coldual = vec![0_f64; cols];
@@ -375,7 +375,7 @@ impl Model {
 
     /// Compute an IIS (Irreducible Infeasible Subsystem) after an infeasible solve.
     pub fn get_iis(&self) -> Iis {
-        let cols = self.num_cols();
+        let cols = self.num_columns();
         let rows = self.num_rows();
         let mut iis_numcol: HighsInt = 0;
         let mut iis_numrow: HighsInt = 0;
@@ -483,7 +483,7 @@ impl Model {
     /// Add a new continuous variable to the live model.
     ///
     /// Returns the new [`Col`] index, or `Err` on an API error.
-    pub fn add_col<N: Into<f64> + Copy, B: RangeBounds<N>>(
+    pub fn add_column<N: Into<f64> + Copy, B: RangeBounds<N>>(
         &mut self,
         cost: f64,
         bounds: B,

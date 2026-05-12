@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn add_row_and_col_to_live_model() {
         let mut model = Model::new(&ColProblem::default(), Sense::Minimise).unwrap();
-        let col = model.add_col(1., 1.., vec![]).unwrap();
+        let col = model.add_column(1., 1.., vec![]).unwrap();
         model.add_row(..1., vec![(col, 1.)]).unwrap();
         model.solve().unwrap();
         assert_eq!(model.get_status(), HighsModelStatus::Optimal);
@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn incremental_infeasible() {
         let mut model = Model::new(&ColProblem::default(), Sense::Minimise).unwrap();
-        let col = model.add_col(1., 1.., vec![]).unwrap();
+        let col = model.add_column(1., 1.., vec![]).unwrap();
         model.add_row(..0.5, vec![(col, 1.)]).unwrap(); // col >= 1 but row <= 0.5
         model.solve().unwrap();
         assert_eq!(model.get_status(), HighsModelStatus::Infeasible);
@@ -237,7 +237,7 @@ mod tests {
         let y = pb.add_column(1., 0..);
         pb.add_row(..1., [(x, 1.), (y, 1.)]);
         let model = Model::new(&pb, Sense::Minimise).unwrap();
-        assert_eq!(model.num_cols(), 2);
+        assert_eq!(model.num_columns(), 2);
         assert_eq!(model.num_rows(), 1);
     }
 
@@ -281,7 +281,7 @@ mod tests {
 
         // clone should have the same LP data and basis
         let mut clone = model.clone();
-        assert_eq!(clone.num_cols(), model.num_cols());
+        assert_eq!(clone.num_columns(), model.num_columns());
         assert_eq!(clone.num_rows(), model.num_rows());
 
         // re-solving the clone from the preserved basis should yield the same result
