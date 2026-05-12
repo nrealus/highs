@@ -94,7 +94,7 @@ mod tests {
 
         let mut model = Model::new(&pb, Sense::Maximise).unwrap();
         model.solve().unwrap();
-        assert_eq!(model.status(), HighsModelStatus::Optimal);
+        assert_eq!(model.get_status(), HighsModelStatus::Optimal);
         let sol = model.get_solution();
         assert_eq!(sol.columns(), &[0., 6., 0.5]);
         assert_eq!(sol.rows(), &[6., 7.]);
@@ -111,7 +111,7 @@ mod tests {
 
         let mut model = Model::new(&pb, Sense::Maximise).unwrap();
         model.solve().unwrap();
-        assert_eq!(model.status(), HighsModelStatus::Optimal);
+        assert_eq!(model.get_status(), HighsModelStatus::Optimal);
         let sol = model.get_solution();
         assert_eq!(sol.columns(), &[0., 6., 0.5]);
         assert_eq!(sol.rows(), &[6., 7.]);
@@ -164,7 +164,7 @@ mod tests {
         let col = model.add_col(1., 1.., vec![]).unwrap();
         model.add_row(..1., vec![(col, 1.)]).unwrap();
         model.solve().unwrap();
-        assert_eq!(model.status(), HighsModelStatus::Optimal);
+        assert_eq!(model.get_status(), HighsModelStatus::Optimal);
         assert_eq!(model.get_solution().columns(), &[1.]);
     }
 
@@ -174,7 +174,7 @@ mod tests {
         let col = model.add_col(1., 1.., vec![]).unwrap();
         model.add_row(..0.5, vec![(col, 1.)]).unwrap(); // col >= 1 but row <= 0.5
         model.solve().unwrap();
-        assert_eq!(model.status(), HighsModelStatus::Infeasible);
+        assert_eq!(model.get_status(), HighsModelStatus::Infeasible);
     }
 
     #[test]
@@ -188,7 +188,7 @@ mod tests {
 
         let mut model = Model::new(&pb, Sense::Minimise).unwrap();
         model.solve().unwrap();
-        assert_eq!(model.status(), HighsModelStatus::Infeasible);
+        assert_eq!(model.get_status(), HighsModelStatus::Infeasible);
         let iis = model.get_iis();
 
         assert_eq!(
@@ -219,7 +219,7 @@ mod tests {
         pb.add_column(1., 0..50);
         let mut model = Model::new(&pb, Sense::Maximise).unwrap();
         model.solve().unwrap();
-        assert_eq!(model.status(), HighsModelStatus::Optimal);
+        assert_eq!(model.get_status(), HighsModelStatus::Optimal);
         assert_eq!(model.get_objective_value(), 50.0);
     }
 
@@ -276,7 +276,7 @@ mod tests {
 
         let mut model = Model::new(&pb, Sense::Maximise).unwrap();
         model.solve().unwrap();
-        assert_eq!(model.status(), HighsModelStatus::Optimal);
+        assert_eq!(model.get_status(), HighsModelStatus::Optimal);
         assert_eq!(model.get_solution().columns(), &[0., 6.]);
 
         // clone should have the same LP data and basis
@@ -286,7 +286,7 @@ mod tests {
 
         // re-solving the clone from the preserved basis should yield the same result
         clone.solve().unwrap();
-        assert_eq!(clone.status(), HighsModelStatus::Optimal);
+        assert_eq!(clone.get_status(), HighsModelStatus::Optimal);
         assert_eq!(clone.get_solution().columns(), &[0., 6.]);
 
         // modifying the clone must not affect the original
@@ -305,7 +305,7 @@ mod tests {
         // clone before any solve — should still be valid and solvable
         let mut clone = model.clone();
         clone.solve().unwrap();
-        assert_eq!(clone.status(), HighsModelStatus::Optimal);
+        assert_eq!(clone.get_status(), HighsModelStatus::Optimal);
         assert_eq!(clone.get_solution().columns(), &[10.]);
     }
 
@@ -319,7 +319,7 @@ mod tests {
             .set_solution(Some(&[50.0]), Some(&[]), Some(&[1.0]), Some(&[]))
             .unwrap();
         model.solve().unwrap();
-        assert_eq!(model.status(), HighsModelStatus::Optimal);
+        assert_eq!(model.get_status(), HighsModelStatus::Optimal);
         assert_eq!(model.get_solution().columns(), &[50.0]);
     }
 }

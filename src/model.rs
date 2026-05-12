@@ -210,7 +210,7 @@ impl Clone for Model {
         }
 
         // restore basis if a solve has been run
-        if self.status() != HighsModelStatus::NotSet {
+        if self.get_status() != HighsModelStatus::NotSet {
             let mut col_status = vec![0 as HighsInt; cols];
             let mut row_status = vec![0 as HighsInt; rows];
             let ok = unsafe {
@@ -318,7 +318,7 @@ impl Model {
     /// Re-calling `solve` will warm-start automatically if the model was not modified.
     pub fn solve(&mut self) -> Result<HighsModelStatus, HighsStatus> {
         unsafe { highs_call!(Highs_run(self.highs.mut_ptr())) }?;
-        Ok(self.status())
+        Ok(self.get_status())
     }
 
     /// Number of columns (variables) in the model.
@@ -337,7 +337,7 @@ impl Model {
     }
 
     /// The model status after the last solve.
-    pub fn status(&self) -> HighsModelStatus {
+    pub fn get_status(&self) -> HighsModelStatus {
         let raw = unsafe { Highs_getModelStatus(self.highs.ptr()) };
         HighsModelStatus::try_from(raw)
             .unwrap_or_else(|InvalidStatus(n)| panic!("HiGHS returned unexpected model status {n}"))
@@ -503,6 +503,44 @@ impl Model {
             ))
         }?;
         Ok(Col(self.highs.num_cols()? - 1))
+    }
+
+    /// Returns `(cost, lower, upper)` for a single column via `Highs_getColsByRange`.
+    fn get_col_data(&self, col: Col) -> (f64, f64, f64) {
+        let mut num_col: HighsInt = 0;
+        let mut num_nz: HighsInt = 0;
+        let mut cost = 0_f64;
+        let mut lower = 0_f64;
+        let mut upper = 0_f64;
+        let idx = col.0 as HighsInt;
+        unsafe {
+            Highs_getColsByRange(
+                self.highs.ptr(),
+                idx,
+                idx,
+                &mut num_col,
+                &mut cost,
+                &mut lower,
+                &mut upper,
+                &mut num_nz,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+            );
+        }
+        (cost, lower, upper)
+    }
+
+    /// Get the current bounds `(lower, upper)` of a column.
+    pub fn get_column_bounds(&self, col: Col) -> (f64, f64) {
+        let (_, lower, upper) = self.get_col_data(col);
+        (lower, upper)
+    }
+
+    /// Get the current objective coefficient of a column.
+    pub fn get_column_cost(&self, col: Col) -> f64 {
+        let (cost, _, _) = self.get_col_data(col);
+        cost
     }
 
     /// Update the objective coefficient of a column.
