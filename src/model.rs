@@ -496,6 +496,72 @@ impl Model {
         Ok(Row((self.highs.num_rows()? - 1) as HighsInt))
     }
 
+    /// Add new constraints to the live model.
+    ///
+    /// Returns `Err` on an API error.
+    pub fn add_rows(
+        &mut self,
+        bounds: &[(f64, f64)],
+        rows: &[impl AsRef<[(Col, f64)]>],
+    ) -> Result<Vec<Row>, HighsStatus> {
+        let first = self.num_rows();
+        let num_new_row = bounds.len();
+        let mut lower = Vec::with_capacity(num_new_row);
+        let mut upper = Vec::with_capacity(num_new_row);
+        let mut astart = Vec::with_capacity(num_new_row);
+        let mut aindex = Vec::new();
+        let mut avalue = Vec::new();
+        let num_cols = self.num_columns();
+        for ((lb, ub), row) in bounds.iter().zip(rows.iter()) {
+            lower.push(*lb);
+            upper.push(*ub);
+            astart.push(aindex.len() as HighsInt);
+            for (col, factor) in row.as_ref() {
+                debug_assert!(
+                    col.0 < num_cols,
+                    "col index {} out of bounds (num_cols={})",
+                    col.0,
+                    num_cols
+                );
+                aindex.push(col.0 as HighsInt);
+                avalue.push(*factor);
+            }
+        }
+        unsafe {
+            highs_call!(Highs_addRows(
+                self.highs.mut_ptr(),
+                num_new_row as HighsInt,
+                lower.as_ptr(),
+                upper.as_ptr(),
+                avalue.len() as HighsInt,
+                astart.as_ptr(),
+                aindex.as_ptr(),
+                avalue.as_ptr()
+            ))
+        }?;
+        Ok((first..self.num_rows())
+            .map(|i| Row(i as HighsInt))
+            .collect())
+    }
+
+    /// Add multiple variables to the live model with zero cost.
+    ///
+    /// Returns the new [`Col`] indices in the same order as `bounds`.
+    /// Set costs later via [`Model::change_column_cost`].
+    pub fn add_columns(&mut self, bounds: &[(f64, f64)]) -> Result<Vec<Col>, HighsStatus> {
+        let first = self.num_columns();
+        let (lower, upper): (Vec<f64>, Vec<f64>) = bounds.iter().copied().unzip();
+        unsafe {
+            highs_call!(Highs_addVars(
+                self.highs.mut_ptr(),
+                bounds.len() as HighsInt,
+                lower.as_ptr(),
+                upper.as_ptr()
+            ))
+        }?;
+        Ok((first..self.num_columns()).map(Col).collect())
+    }
+
     /// Add a new continuous variable to the live model.
     ///
     /// Returns the new [`Col`] index, or `Err` on an API error.
